@@ -1,75 +1,103 @@
 import cv2
 import mediapipe as mp
+import pyttsx3
 import time
 
-# Initialize MediaPipe Hands
+# Initialize TTS engine
+engine = pyttsx3.init()
+
+# Initialize MediaPipe
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands()
 mp_draw = mp.solutions.drawing_utils
 
-# Gesture history
-last_sign = ""
-sentence = ""
-last_time = 0
+# Detect finger states (1 = up, 0 = down)
+def get_finger_states(landmarks):
+    tips = [4, 8, 12, 16, 20]
+    states = []
 
-# Function to detect word-level gesture
-def detect_word(hand_landmarks):
-    thumb_tip = hand_landmarks.landmark[4]
-    index_tip = hand_landmarks.landmark[8]
-    middle_tip = hand_landmarks.landmark[12]
-    ring_tip = hand_landmarks.landmark[16]
-    pinky_tip = hand_landmarks.landmark[20]
-    wrist = hand_landmarks.landmark[0]
+    # Thumb
+    if landmarks[tips[0]].x < landmarks[tips[0] - 1].x:
+        states.append(1)
+    else:
+        states.append(0)
 
-    # WORD: "Hello" (open palm)
-    if (index_tip.y < wrist.y and
-        middle_tip.y < wrist.y and
-        ring_tip.y < wrist.y and
-        pinky_tip.y < wrist.y and
-        thumb_tip.x < index_tip.x):
-        return "Hello"
+    # Other fingers
+    for i in range(1, 5):
+        if landmarks[tips[i]].y < landmarks[tips[i] - 2].y:
+            states.append(1)
+        else:
+            states.append(0)
+    return states
 
-    # WORD: "Yes" (fist)
-    if (abs(thumb_tip.x - index_tip.x) < 0.05 and
-        abs(thumb_tip.x - middle_tip.x) < 0.05):
+# Detect word from gestures
+def detect_word(landmarks):
+    states = get_finger_states(landmarks)
+
+    # Print live values to debug
+    print(f"Finger States: {states}")
+    print(f"Wrist Y: {landmarks[0].y:.2f}, Index Y: {landmarks[8].y:.2f}")
+    print(f"Thumb tip X: {landmarks[4].x:.2f}, Thumb joint X: {landmarks[3].x:.2f}")
+
+    if states == [1, 1, 1, 1, 1]:
+        return "Stop"
+
+    if states == [1, 0, 0, 0, 0]:
         return "Yes"
 
-    # WORD: "No" (thumb and index making L shape)
-    if (abs(thumb_tip.y - index_tip.y) < 0.05 and
-        abs(index_tip.x - middle_tip.x) < 0.03):
+    if states == [0, 1, 0, 0, 0]:
         return "No"
 
-    return None
+    # HELLO = palm facing camera
+    if states == [1, 1, 1, 1, 1] and abs(landmarks[4].x - landmarks[3].x) > 0.03:
+        return "Hello"
 
-# Start Webcam
+
+    # THANKS = all fingers up, hand raised
+    if states == [1, 1, 1, 1, 1] and landmarks[8].y < landmarks[0].y - 0.1:
+        return "Thanks"
+
+
+    return "?"
+
+
+
+# Open webcam (smooth + reliable)
 cap = cv2.VideoCapture(0)
+prev_word = ""
+sentence = ""
+last_spoken_time = time.time()
 
 while True:
     success, img = cap.read()
+    if not success:
+        break
+
+    img = cv2.flip(img, 1)
     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     result = hands.process(img_rgb)
-
-    current_time = time.time()
 
     if result.multi_hand_landmarks:
         for hand_landmarks in result.multi_hand_landmarks:
             mp_draw.draw_landmarks(img, hand_landmarks, mp_hands.HAND_CONNECTIONS)
 
-            word = detect_word(hand_landmarks)
+            word = detect_word(hand_landmarks.landmark)
 
-            # Confirm gesture is stable for 2 seconds before adding
-            if word and word != last_sign:
-                last_sign = word
-                last_time = current_time
-            elif word == last_sign and (current_time - last_time > 1.5):
+            if word != "?" and word != prev_word and time.time() - last_spoken_time > 2:
                 sentence += word + " "
-                last_sign = ""  # reset so it doesn't repeat
+                prev_word = word
+                last_spoken_time = time.time()
 
-    # Display the sentence
-    cv2.putText(img, "Output: " + sentence, (10, 60),
-                cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
+                # Speak the word
+                engine.say(word)
+                engine.runAndWait()
 
-    cv2.imshow("Word-Based Gesture Recognition", img)
+            cv2.putText(img, word, (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 3)
+
+    # Show full sentence
+    cv2.putText(img, sentence.strip(), (50, 160), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+
+    cv2.imshow("Word Gesture Detection", img)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
