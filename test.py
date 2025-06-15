@@ -90,7 +90,7 @@ def detect_word(landmarks):
         return "Thanks"
 
 
-    return "?" 
+    return "?"
 
 
 
