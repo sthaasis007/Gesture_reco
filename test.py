@@ -66,18 +66,33 @@ def get_finger_states(landmarks):
 def detect_word(landmarks):
     states = get_finger_states(landmarks)
 
+    # Print live values to debug
+    print(f"Finger States: {states}")
+    print(f"Wrist Y: {landmarks[0].y:.2f}, Index Y: {landmarks[8].y:.2f}")
+    print(f"Thumb tip X: {landmarks[4].x:.2f}, Thumb joint X: {landmarks[3].x:.2f}")
+
     if states == [1, 1, 1, 1, 1]:
         return "Stop"
+
     if states == [1, 0, 0, 0, 0]:
         return "Yes"
+
     if states == [0, 1, 0, 0, 0]:
         return "No"
-    if states == [1, 1, 1, 1, 1] and landmarks[0].z < -0.1:
+
+    # HELLO = palm facing camera
+    if states == [1, 1, 1, 1, 1] and abs(landmarks[4].x - landmarks[3].x) > 0.03:
         return "Hello"
+
+
+    # THANKS = all fingers up, hand raised
     if states == [1, 1, 1, 1, 1] and landmarks[8].y < landmarks[0].y - 0.1:
         return "Thanks"
 
+
     return "?"
+
+
 
 # Open webcam (smooth + reliable)
 cap = cv2.VideoCapture(0)
