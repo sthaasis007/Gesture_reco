@@ -6,6 +6,7 @@ import time
 import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk
+import tkinter.font as font
 
 # Initialize TTS engine
 engine = pyttsx3.init()
@@ -21,89 +22,87 @@ mp_hands = mp.solutions.hands
 hands = mp_hands.Hands()
 mp_draw = mp.solutions.drawing_utils
 
-# Detect finger states (1 = up, 0 = down)
 def get_finger_states(landmarks):
     tips = [4, 8, 12, 16, 20]
     states = []
-    # Thumb
     if landmarks[tips[0]].x < landmarks[tips[0] - 1].x:
         states.append(1)
     else:
         states.append(0)
-    # Other fingers
     for i in range(1, 5):
         if landmarks[tips[i]].y < landmarks[tips[i] - 2].y:
             states.append(1)
         else:
             states.append(0)
     return states
-
-# Detect word from gesture
+# Detect word based on finger states
 def detect_word(landmarks):
     states = get_finger_states(landmarks)
-    if states == [0, 0, 0, 0, 0]:
-        return "Stop"
-    if states == [1, 0, 0, 0, 0]:
-        return "Yes"
-    if states == [0, 1, 0, 0, 0]:
-        return "No"
-    if states == [1, 1, 1, 1, 1]:
-        return "Hello"
-    if states == [0, 1, 1, 1, 0]:
-        return "Thanks"
-    if states == [0, 0, 1, 0, 0]:
-        return "Goodbye"
-    if states == [1, 1, 0, 0, 0]:
-        return "You"
-    if states == [1, 0, 0, 0, 1]:
-        return "Are"
-    if states == [0, 1, 0, 0, 1]:
-        return "Fine"
-    if states == [0, 0, 1, 1, 1]:
-        return "Beautiful"
+    if states == [0, 0, 0, 0, 0]: return "Stop"
+    if states == [1, 0, 0, 0, 0]: return "Yes"
+    if states == [0, 1, 0, 0, 0]: return "No"
+    if states == [1, 1, 1, 1, 1]: return "Hello"
+    if states == [0, 1, 1, 1, 0]: return "Thanks"
+    if states == [0, 0, 1, 0, 0]: return "Goodbye"
+    if states == [1, 1, 0, 0, 0]: return "You"
+    if states == [1, 0, 0, 0, 1]: return "Are"
+    if states == [0, 1, 0, 0, 1]: return "Fine"
+    if states == [0, 0, 1, 1, 1]: return "Beautiful"
     return "?"
 
 class GestureApp:
     def __init__(self, root):
         self.root = root
         root.title("Gesture Recognition")
+        root.configure(bg='#eaf6fb')
 
         self.video_running = False
         self.prev_word = ""
+        self.last_added_word = ""
         self.sentence = ""
         self.last_spoken_time = 0
+        self.detected_consistently = 0
+        self.required_consistency = 10
 
-        # Tabs
+        self.custom_font = font.Font(family='Verdana', size=12)
+        self.header_font = font.Font(family='Poppins', size=20, weight='bold')
+        self.label_font = font.Font(family='Poppins', size=14)
+
         tab_control = ttk.Notebook(root)
-        self.gesture_tab = ttk.Frame(tab_control)
+        self.gesture_tab = tk.Frame(tab_control, bg='#eaf6fb')
         tab_control.add(self.gesture_tab, text="Gesture Recognition")
         tab_control.pack(expand=1, fill='both')
 
-        # Start button
-        self.start_btn = ttk.Button(self.gesture_tab, text="Start Recognition", command=self.start_video)
+        header = tk.Label(self.gesture_tab, text="Sign Language to Speech Translator",
+                          font=self.header_font, bg='#eaf6fb', fg='#013243')
+        header.pack(pady=10)
+
+        self.start_btn = tk.Button(self.gesture_tab, text="Start Recognition", command=self.start_video,
+                                   bg="#2ecc71", fg="white", font=self.custom_font, relief="flat", padx=10, pady=5)
         self.start_btn.pack(pady=10)
 
-        # Canvas for camera feed
-        self.canvas = tk.Canvas(self.gesture_tab, width=640, height=480)
+        self.video_frame = tk.Frame(self.gesture_tab, bg='black', highlightbackground="gray", highlightthickness=1)
+        self.video_frame.pack(pady=5)
+        self.canvas = tk.Canvas(self.video_frame, width=640, height=480)
         self.canvas.pack()
 
-        # Recognized word label
-        self.word_label = ttk.Label(self.gesture_tab, text="Current Word: ", font=("Helvetica", 16))
+        self.word_label = tk.Label(self.gesture_tab, text="Current Word: ?", font=self.label_font,
+                                   bg='#eaf6fb', fg='#34495e')
         self.word_label.pack(pady=5)
 
-        # Sentence label
-        self.sentence_label = ttk.Label(self.gesture_tab, text="Sentence: ", font=("Helvetica", 14))
+        self.sentence_label = tk.Label(self.gesture_tab, text="Sentence:", font=self.label_font,
+                                       bg='#eaf6fb', fg='#34495e')
         self.sentence_label.pack(pady=5)
 
-        # Clear sentence button
-        self.clear_btn = ttk.Button(self.gesture_tab, text="Clear Sentence", command=self.clear_sentence)
+        self.clear_btn = tk.Button(self.gesture_tab, text="Clear Sentence", command=self.clear_sentence,
+                                   bg="#e74c3c", fg="white", font=self.custom_font, relief="flat", padx=10, pady=5)
         self.clear_btn.pack(pady=10)
 
         self.cap = None
 
     def clear_sentence(self):
         self.sentence = ""
-        self.sentence_label.config(text="Sentence: ")
+        self.sentence_label.config(text="Sentence:")
 
     def start_video(self):
         if not self.video_running:
@@ -134,27 +133,36 @@ class GestureApp:
                 mp_draw.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
                 word = detect_word(hand_landmarks.landmark)
 
-                if word != "?" and word != self.prev_word and (time.time() - self.last_spoken_time) > 2:
-                    self.sentence += word + " "
-                    self.prev_word = word
-                    self.last_spoken_time = time.time()
-                    speak(word)
+                if word != "?" and word != self.last_added_word:
+                    if word == self.prev_word:
+                        self.detected_consistently += 1
+                    else:
+                        self.detected_consistently = 1
+                        self.prev_word = word
 
-        # Update GUI elements
+                    if self.detected_consistently == self.required_consistency:
+                        self.sentence += word + " "
+                        self.last_spoken_time = time.time()
+                        speak(word)
+                        self.last_added_word = word
+                        self.detected_consistently = 0
+                elif word == "?":
+                    self.prev_word = ""
+                    self.detected_consistently = 0
+
         self.word_label.config(text=f"Current Word: {word}")
         self.sentence_label.config(text=f"Sentence: {self.sentence.strip()}")
 
-        # Convert to ImageTk for displaying in Tkinter
         img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         img = Image.fromarray(img)
         imgtk = ImageTk.PhotoImage(image=img)
         self.canvas.imgtk = imgtk
         self.canvas.create_image(0, 0, anchor='nw', image=imgtk)
 
-        # Repeat every 30 ms (~33 FPS)
         self.root.after(30, self.update_frame)
 
 if __name__ == "__main__":
     root = tk.Tk()
     app = GestureApp(root)
     root.mainloop()
+
