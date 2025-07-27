@@ -19,22 +19,29 @@ def speak(word):
 
 # MediaPipe init
 mp_hands = mp.solutions.hands
-hands = mp_hands.Hands()
+hands = mp_hands.Hands(max_num_hands=2)  # ✅ allow two hands
 mp_draw = mp.solutions.drawing_utils
 
 def get_finger_states(landmarks):
+    """
+    Return list of finger states for one hand:
+    Thumb, Index, Middle, Ring, Pinky (1=open, 0=closed)
+    """
     tips = [4, 8, 12, 16, 20]
     states = []
+    # Thumb: check x direction
     if landmarks[tips[0]].x < landmarks[tips[0] - 1].x:
         states.append(1)
     else:
         states.append(0)
+    # Fingers: check y direction
     for i in range(1, 5):
         if landmarks[tips[i]].y < landmarks[tips[i] - 2].y:
             states.append(1)
         else:
             states.append(0)
     return states
+<<<<<<< HEAD
 # Detect word based on finger states
 def detect_word(landmarks):
     states = get_finger_states(landmarks)
@@ -52,6 +59,36 @@ def detect_word(landmarks):
         return "o"
     if states == [0, 1, 1, 0, 0]:
         return "k"
+=======
+
+def detect_word(states):
+    """
+    Map finger states to words.
+    You can add more gestures here by defining unique patterns.
+    """
+    # Example dictionary of gestures
+    if states == [0,0,0,0,0]: return "Stop"
+    if states == [1,0,0,0,0]: return "Yes"
+    if states == [0,1,0,0,0]: return "No"
+    if states == [1,1,1,1,1]: return "Hello"
+    if states == [0,1,1,1,0]: return "Thanks"
+    if states == [0,0,1,0,0]: return "Goodbye"
+    if states == [1,1,0,0,0]: return "You"
+    if states == [1,0,0,0,1]: return "Are"
+    if states == [0,1,0,0,1]: return "Fine"
+    if states == [0,0,1,1,1]: return "Beautiful"
+    # ✅ New gestures:
+    if states == [1,1,0,1,0]: return "Love"
+    if states == [0,1,1,0,0]: return "Happy"
+    if states == [1,0,1,0,0]: return "Sad"
+    if states == [1,1,1,0,0]: return "Run"
+    if states == [1,1,0,1,1]: return "Walk"
+    if states == [0,1,1,1,1]: return "Eat"
+    if states == [1,0,1,1,1]: return "Drink"
+    if states == [0,0,1,0,1]: return "Play"
+    if states == [0,1,0,1,0]: return "Friend"
+    if states == [1,0,1,0,1]: return "Home"
+>>>>>>> b93202b62ea4e74f25c9ab509cff5d4473a5f12b
     return "?"
 
 class GestureApp:
@@ -133,26 +170,41 @@ class GestureApp:
 
         word = "?"
         if result.multi_hand_landmarks:
+            combined_states = []
             for hand_landmarks in result.multi_hand_landmarks:
                 mp_draw.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
-                word = detect_word(hand_landmarks.landmark)
+                states = get_finger_states(hand_landmarks.landmark)
+                w = detect_word(states)
+                if w != "?":
+                    combined_states.append(w)
 
-                if word != "?" and word != self.last_added_word:
-                    if word == self.prev_word:
-                        self.detected_consistently += 1
-                    else:
-                        self.detected_consistently = 1
-                        self.prev_word = word
+            # Combine detected words from both hands if needed
+            if len(combined_states) == 2:
+                # Example of special two-hand gesture:
+                if ("Hello" in combined_states and "Hello" in combined_states):
+                    word = "Namaste"
+                else:
+                    # else just take first detected
+                    word = combined_states[0]
+            elif len(combined_states) == 1:
+                word = combined_states[0]
 
-                    if self.detected_consistently == self.required_consistency:
-                        self.sentence += word + " "
-                        self.last_spoken_time = time.time()
-                        speak(word)
-                        self.last_added_word = word
-                        self.detected_consistently = 0
-                elif word == "?":
-                    self.prev_word = ""
+            # Sentence construction
+            if word != "?" and word != self.last_added_word:
+                if word == self.prev_word:
+                    self.detected_consistently += 1
+                else:
+                    self.detected_consistently = 1
+                    self.prev_word = word
+
+                if self.detected_consistently == self.required_consistency:
+                    self.sentence += word + " "
+                    speak(word)
+                    self.last_added_word = word
                     self.detected_consistently = 0
+            elif word == "?":
+                self.prev_word = ""
+                self.detected_consistently = 0
 
         self.word_label.config(text=f"Current Word: {word}")
         self.sentence_label.config(text=f"Sentence: {self.sentence.strip()}")
@@ -169,4 +221,3 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = GestureApp(root)
     root.mainloop()
-
