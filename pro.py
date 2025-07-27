@@ -48,6 +48,10 @@ def detect_word(landmarks):
     if states == [1, 0, 0, 0, 1]: return "Are"
     if states == [0, 1, 0, 0, 1]: return "Fine"
     if states == [0, 0, 1, 1, 1]: return "Beautiful"
+    if states == [0, 0, 0, 1, 1]:
+        return "o"
+    if states == [0, 1, 1, 0, 0]:
+        return "k"
     return "?"
 
 class GestureApp:
