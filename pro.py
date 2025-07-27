@@ -41,25 +41,6 @@ def get_finger_states(landmarks):
         else:
             states.append(0)
     return states
-<<<<<<< HEAD
-# Detect word based on finger states
-def detect_word(landmarks):
-    states = get_finger_states(landmarks)
-    if states == [0, 0, 0, 0, 0]: return "Stop"
-    if states == [1, 0, 0, 0, 0]: return "Yes"
-    if states == [0, 1, 0, 0, 0]: return "No"
-    if states == [1, 1, 1, 1, 1]: return "Hello"
-    if states == [0, 1, 1, 1, 0]: return "Thanks"
-    if states == [0, 0, 1, 0, 0]: return "Goodbye"
-    if states == [1, 1, 0, 0, 0]: return "You"
-    if states == [1, 0, 0, 0, 1]: return "Are"
-    if states == [0, 1, 0, 0, 1]: return "Fine"
-    if states == [0, 0, 1, 1, 1]: return "Beautiful"
-    if states == [0, 0, 0, 1, 1]:
-        return "o"
-    if states == [0, 1, 1, 0, 0]:
-        return "k"
-=======
 
 def detect_word(states):
     """
@@ -88,7 +69,6 @@ def detect_word(states):
     if states == [0,0,1,0,1]: return "Play"
     if states == [0,1,0,1,0]: return "Friend"
     if states == [1,0,1,0,1]: return "Home"
->>>>>>> b93202b62ea4e74f25c9ab509cff5d4473a5f12b
     return "?"
 
 class GestureApp:
