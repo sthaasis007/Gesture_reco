@@ -58,7 +58,6 @@ def detect_word(states):
     if states == [1,0,0,0,1]: return "Are"
     if states == [0,1,0,0,1]: return "Fine"
     if states == [0,0,1,1,1]: return "Beautiful"
-    # ✅ New gestures:
     if states == [1,1,0,1,0]: return "Love"
     if states == [0,1,1,0,0]: return "Happy"
     if states == [1,0,1,0,0]: return "Sad"
